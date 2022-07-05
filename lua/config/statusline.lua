@@ -1,153 +1,126 @@
-local get_hex = require('cokeline/utils').get_hex
-local mappings = require('cokeline/mappings')
+local fn = vim.fn
 
-local comments_fg = get_hex('Comment', 'fg')
-local errors_fg = get_hex('DiagnosticError', 'fg')
-local warnings_fg = get_hex('DiagnosticWarn', 'fg')
+local function spell()
+  if vim.o.spell then
+    return string.format("[SPELL]")
+  end
 
-local red = vim.g.terminal_color_1
-local yellow = vim.g.terminal_color_3
+  return ""
+end
 
-local components = {
-  space = {
-    text = ' ',
-    truncation = { priority = 1 }
+local function ime_state()
+  if vim.g.is_mac then
+    -- ref: https://github.com/vim-airline/vim-airline/blob/master/autoload/airline/extensions/xkblayout.vim#L11
+    local layout = fn.libcall(vim.g.XkbSwitchLib, 'Xkb_Switch_getXkbLayout', '')
+    if layout == '0' then
+      return '[CN]'
+    end
+  end
+
+  return ""
+end
+
+local function trailing_space()
+  -- Get the positions of trailing whitespaces from plugin 'jdhao/whitespace.nvim'.
+  local trailing_space_pos = vim.b.trailing_whitespace_pos
+
+  local msg = ""
+  if #trailing_space_pos > 0 then
+    -- Note that lua index is 1-based, not zero based!!!
+    local line = trailing_space_pos[1][1]
+    msg = string.format("[%d]trailing", line)
+  end
+
+  return msg
+end
+
+local function mixed_indent()
+  local space_pat = [[\v^ +]]
+  local tab_pat = [[\v^\t+]]
+  local space_indent = fn.search(space_pat, 'nwc')
+  local tab_indent = fn.search(tab_pat, 'nwc')
+  local mixed = (space_indent > 0 and tab_indent > 0)
+  local mixed_same_line
+  if not mixed then
+    mixed_same_line = fn.search([[\v^(\t+ | +\t)]], 'nwc')
+    mixed = mixed_same_line > 0
+  end
+  if not mixed then return '' end
+  if mixed_same_line ~= nil and mixed_same_line > 0 then
+     return 'MI:'..mixed_same_line
+  end
+  local space_indent_cnt = fn.searchcount({pattern=space_pat, max_count=1e3}).total
+  local tab_indent_cnt =  fn.searchcount({pattern=tab_pat, max_count=1e3}).total
+  if space_indent_cnt > tab_indent_cnt then
+    return 'MI:'..tab_indent
+  else
+    return 'MI:'..space_indent
+  end
+end
+
+require("lualine").setup({
+  options = {
+    icons_enabled = true,
+    theme = "auto",
+    -- component_separators = { left = "", right = "" },
+    -- section_separators = { left = "", right = "" },
+    section_separators = "",
+    component_separators = "",
+    disabled_filetypes = {},
+    always_divide_middle = true,
   },
-
-  two_spaces = {
-    text = '  ',
-    truncation = { priority = 1 },
-  },
-
-  separator = {
-    text = function(buffer)
-      return buffer.index ~= 1 and '▏' or ''
-    end,
-    truncation = { priority = 1 }
-  },
-
-  devicon = {
-    text = function(buffer)
-      return
-        (mappings.is_picking_focus() or mappings.is_picking_close())
-          and buffer.pick_letter .. ' '
-           or buffer.devicon.icon
-    end,
-    fg = function(buffer)
-      return
-        (mappings.is_picking_focus() and yellow)
-        or (mappings.is_picking_close() and red)
-        or buffer.devicon.color
-    end,
-    style = function(_)
-      return
-        (mappings.is_picking_focus() or mappings.is_picking_close())
-        and 'italic,bold'
-         or nil
-    end,
-    truncation = { priority = 1 }
-  },
-
-  index = {
-    text = function(buffer)
-      return buffer.index .. ': '
-    end,
-    truncation = { priority = 1 }
-  },
-
-  unique_prefix = {
-    text = function(buffer)
-      return buffer.unique_prefix
-    end,
-    fg = comments_fg,
-    style = 'italic',
-    truncation = {
-      priority = 3,
-      direction = 'left',
+  sections = {
+    lualine_a = { "mode" },
+    lualine_b = { "branch", "diff" },
+    lualine_c = {
+      "filename",
+      {
+        ime_state,
+        color = {fg = 'black', bg = '#f46868'}
+      },
+      {
+        spell,
+        color = {fg = 'black', bg = '#a7c080'}
+      },
+    },
+    lualine_x = {
+      "encoding",
+      {
+        "fileformat",
+        symbols = {
+          unix = "unix",
+          dos = "win",
+          mac = "mac",
+        },
+      },
+      "filetype",
+    },
+    lualine_y = { "progress" },
+    lualine_z = {
+      "location",
+      {
+        "diagnostics",
+        sources = { "nvim_diagnostic" }
+      },
+      {
+        trailing_space,
+        color = "WarningMsg"
+      },
+      {
+        mixed_indent,
+        color = "WarningMsg"
+      },
     },
   },
-
-  filename = {
-    text = function(buffer)
-      return buffer.filename
-    end,
-    style = function(buffer)
-      return
-        ((buffer.is_focused and buffer.diagnostics.errors ~= 0)
-          and 'bold,underline')
-        or (buffer.is_focused and 'bold')
-        or (buffer.diagnostics.errors ~= 0 and 'underline')
-        or nil
-    end,
-    truncation = {
-      priority = 2,
-      direction = 'left',
-    },
+  inactive_sections = {
+    lualine_a = {},
+    lualine_b = {},
+    lualine_c = { "filename" },
+    lualine_x = { "location" },
+    lualine_y = {},
+    lualine_z = {},
   },
-
-  diagnostics = {
-    text = function(buffer)
-      return
-        (buffer.diagnostics.errors ~= 0 and '  ' .. buffer.diagnostics.errors)
-        or (buffer.diagnostics.warnings ~= 0 and '  ' .. buffer.diagnostics.warnings)
-        or ''
-    end,
-    fg = function(buffer)
-      return
-        (buffer.diagnostics.errors ~= 0 and errors_fg)
-        or (buffer.diagnostics.warnings ~= 0 and warnings_fg)
-        or nil
-    end,
-    truncation = { priority = 1 },
-  },
-
-  close_or_unsaved = {
-    text = function(buffer)
-      return buffer.is_modified and '●' or ''
-    end,
-    fg = function(buffer)
-      return buffer.is_modified and green or nil
-    end,
-    delete_buffer_on_left_click = true,
-    truncation = { priority = 1 },
-  },
-}
-
-require('cokeline').setup({
-  show_if_buffers_are_at_least = 2,
-
-  buffers = {
-    -- filter_valid = function(buffer) return buffer.type ~= 'terminal' end,
-    -- filter_visible = function(buffer) return buffer.type ~= 'terminal' end,
-    new_buffers_position = 'next',
-  },
-
-  rendering = {
-    max_buffer_width = 30,
-  },
-
-  default_hl = {
-    fg = function(buffer)
-      return
-        buffer.is_focused
-        and get_hex('Normal', 'fg')
-         or get_hex('Comment', 'fg')
-    end,
-    bg = get_hex('ColorColumn', 'bg'),
-  },
-
-  components = {
-    components.space,
-    components.separator,
-    components.space,
-    components.devicon,
-    components.space,
-    components.index,
-    components.unique_prefix,
-    components.filename,
-    components.diagnostics,
-    components.two_spaces,
-    components.close_or_unsaved,
-    components.space,
-  },
+  tabline = {},
+  extensions = {'quickfix', 'fugitive', 'nvim-tree'},
 })
+

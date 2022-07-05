@@ -3,9 +3,12 @@ local fn = vim.fn
 
 vim.g.package_home = fn.stdpath("data") .. "/site/pack/packer/"
 local packer_install_dir = vim.g.package_home .. "/opt/packer.nvim"
+local everforest_install_dir = fn.stdpath("data") .. "/site/pack/colors/opt/everforest"
 
 local packer_repo = "https://github.com/wbthomason/packer.nvim"
+local everforest_repo = "https://github.com/sainnhe/everforest.git"
 local install_cmd = string.format("10split |term git clone --depth=1 %s %s", packer_repo, packer_install_dir)
+local install_everforest_cmd = string.format("10split |term git clone --depth=1 %s %s", everforest_repo, everforest_install_dir)
 
 -- Auto-install packer in case it hasn't been installed.
 if fn.glob(packer_install_dir) == "" then
@@ -13,22 +16,37 @@ if fn.glob(packer_install_dir) == "" then
   vim.cmd(install_cmd)
 end
 
+if fn.glob(everforest_install_dir) == "" then
+  vim.api.nvim_echo({ { "Installing everforest.nvim", "Type" } }, true, {})
+  vim.cmd(install_everforest_cmd)
+end
+
+
 -- Load packer.nvim
 vim.cmd("packadd packer.nvim")
+vim.cmd("packadd everforest")
 local util = require('packer.util')
 
 require("packer").startup({
   function(use)
     -- it is recommened to put impatient.nvim before any other plugins
     use {'lewis6991/impatient.nvim', config = [[require('impatient')]]}
-
-    use {'neoclide/coc.nvim', branch = 'release'}
     
     -- need this for packer to not be uninstalled
     use({"wbthomason/packer.nvim", opt = true})
+    use({"sainnhe/everforest", opt = true})
+
+    -- autocomplete
+    use {'neoclide/coc.nvim', branch = 'release'}
+
+    -- ciq
+    use 'tpope/vim-surround'
+
+    -- multiple cursors
+    use {'mg979/vim-visual-multi', branch = 'master'}
 
     -- theme things
-    use 'Mofiqul/dracula.nvim'
+    use 'dracula/vim'
 
     use {'kyazdani42/nvim-web-devicons', event = 'VimEnter'}
 
@@ -48,16 +66,6 @@ require("packer").startup({
       requires = { 'kyazdani42/nvim-web-devicons' },
       config = [[require('config.nvim-tree')]]
     }
-
-    -- autocomplete
-    use({"onsails/lspkind-nvim", event = "VimEnter"})
-    use {"hrsh7th/nvim-cmp", after = "lspkind-nvim", config = [[require('config.nvim-cmp')]]}
-    use {"hrsh7th/cmp-path", after = "nvim-cmp"}
-    use {"hrsh7th/cmp-buffer", after = "nvim-cmp"}
-    use { "hrsh7th/cmp-omni", after = "nvim-cmp" }
-
-    -- nvim-lsp configuration (it relies on cmp-nvim-lsp, so it should be loaded after cmp-nvim-lsp).
-    use({ "neovim/nvim-lspconfig", after = "cmp-nvim-lsp", config = [[require('config.lsp')]] })
 
     -- syntax highlighting
     use({ "nvim-treesitter/nvim-treesitter", event = 'BufEnter', run = ":TSUpdate", config = [[require('config.treesitter')]] })
@@ -107,7 +115,7 @@ require("packer").startup({
     use({
       'noib3/nvim-cokeline',
       requires = 'kyazdani42/nvim-web-devicons', -- If you want devicons
-      config = [[require('config.statusline')]]
+      config = [[require('config.bufferline')]]
     })
 
     use({

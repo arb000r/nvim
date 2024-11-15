@@ -11,6 +11,28 @@ local sign = function(opts)
   })
 end
 
+if vim.g.neovide then
+  vim.g.neovide_cursor_trail_size = 0.0
+  vim.g.gui_font_default_size = 16
+  vim.g.neovide_position_animation_length = 0.0
+  vim.g.neovide_refresh_rate = 100
+  vim.o.guifont = "MesloLGL Nerd Font:h14"
+  vim.g.neovide_floating_shadow = false
+  vim.api.nvim_set_keymap(
+    "n",
+    "<C-+>",
+    ":lua vim.g.neovide_scale_factor = vim.g.neovide_scale_factor + 0.1<CR>",
+    { silent = true }
+  )
+  vim.api.nvim_set_keymap(
+    "n",
+    "<C-->",
+    ":lua vim.g.neovide_scale_factor = vim.g.neovide_scale_factor - 0.1<CR>",
+    { silent = true }
+  )
+  vim.api.nvim_set_keymap("n", "<C-0>", ":lua vim.g.neovide_scale_factor = 1<CR>", { silent = true })
+end
+
 sign({ name = "DiagnosticSignError", text = "" })
 sign({ name = "DiagnosticSignWarn", text = "" })
 sign({ name = "DiagnosticSignHint", text = "" })
